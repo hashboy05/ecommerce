@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce Manager</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; color: #333; }
+
+        header {
+            background: #1a1a2e; color: white;
+            padding: 1rem 2rem;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        header h1 { font-size: 1.4rem; letter-spacing: 0.5px; }
+
+        nav { display: flex; gap: 0.5rem; }
+        nav button {
+            padding: 0.5rem 1.4rem; border: none; border-radius: 20px;
+            cursor: pointer; font-size: 0.9rem; font-weight: 600;
+            background: rgba(255,255,255,0.1); color: white; transition: all 0.2s;
+        }
+        nav button.active { background: #e94560; }
+        nav button:hover:not(.active) { background: rgba(255,255,255,0.2); }
+
+        main { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+
+        .tab { display: none; }
+        .tab.active { display: block; }
+
+        .card {
+            background: white; border-radius: 12px;
+            padding: 1.5rem; margin-bottom: 1.25rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+        .section-header h2 { font-size: 1.2rem; color: #1a1a2e; }
+
+        .form-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; }
+        .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+        .form-group label { font-size: 0.75rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        input[type="text"], input[type="number"], select {
+            padding: 0.6rem 0.9rem;
+            border: 1.5px solid #e0e0e0; border-radius: 8px;
+            font-size: 0.95rem; outline: none;
+            transition: border-color 0.2s;
+            background: white;
+        }
+        input:focus, select:focus { border-color: #e94560; }
+
+        .btn {
+            padding: 0.6rem 1.2rem; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 0.88rem; font-weight: 700;
+            transition: all 0.15s; white-space: nowrap;
+        }
+        .btn-primary { background: #e94560; color: white; }
+        .btn-primary:hover { background: #c7304a; transform: translateY(-1px); }
+        .btn-secondary { background: #f0f2f5; color: #555; }
+        .btn-secondary:hover { background: #e0e2e5; }
+        .btn-danger { background: #ff4d4d; color: white; }
+        .btn-danger:hover { background: #d93030; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #1e8035; }
+        .btn-sm { padding: 0.3rem 0.8rem; font-size: 0.8rem; }
+
+        .list { display: grid; gap: 0.7rem; }
+        .list-item {
+            background: white; border-radius: 10px;
+            padding: 1rem 1.25rem;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            border-left: 4px solid #e94560;
+            transition: box-shadow 0.2s;
+        }
+        .list-item:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.1); }
+        .list-item .info h3 { font-size: 1rem; color: #1a1a2e; }
+        .list-item .info p { font-size: 0.82rem; color: #999; margin-top: 0.2rem; }
+        .list-item .actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+
+        .tag {
+            display: inline-block; padding: 0.18rem 0.65rem;
+            border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+            background: #e8f0fe; color: #3367d6; margin: 0.15rem 0.1rem;
+        }
+        .tag.removable { cursor: pointer; transition: all 0.15s; }
+        .tag.removable:hover { background: #fde8ee; color: #e94560; }
+
+        .price { font-weight: 800; color: #28a745; margin-left: 0.4rem; }
+
+        .badge {
+            display: inline-block; padding: 0.15rem 0.55rem;
+            border-radius: 6px; font-size: 0.75rem; font-weight: 600;
+            background: #f0f2f5; color: #666; margin-left: 0.5rem;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.45); z-index: 100;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: white; border-radius: 14px;
+            padding: 2rem; width: 420px; max-width: 95vw;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        .modal h3 { margin-bottom: 1.2rem; font-size: 1.1rem; color: #1a1a2e; }
+        .modal .form-group { margin-bottom: 0.9rem; width: 100%; }
+        .modal .form-group input { width: 100%; }
+        .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.2rem; }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 2rem; right: 2rem;
+            padding: 0.75rem 1.5rem; border-radius: 10px;
+            font-size: 0.9rem; font-weight: 600;
+            opacity: 0; transition: opacity 0.3s; z-index: 200;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+        .toast.success { background: #28a745; color: white; }
+        .toast.error { background: #e94560; color: white; }
+        .toast.info { background: #1a1a2e; color: white; }
+
+        .loading { text-align: center; color: #bbb; padding: 2.5rem; font-style: italic; }
+        .empty { text-align: center; color: #ccc; padding: 3rem; font-size: 0.95rem; }
+
+        .divider { border: none; border-top: 1px solid #f0f0f0; margin: 1.25rem 0; }
+
+        .store-chip {
+            display: inline-block; font-size: 0.78rem; font-weight: 600;
+            color: #888; background: #f5f5f5; padding: 0.15rem 0.55rem;
+            border-radius: 6px; margin-left: 0.4rem;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🛒 E-Commerce Manager</h1>
+    <nav>
+        <button onclick="showTab('stores')" id="tab-btn-stores" class="active">🏪 Stores</button>
+        <button onclick="showTab('items')"  id="tab-btn-items">📦 Items</button>
+        <button onclick="showTab('tags')"   id="tab-btn-tags">🏷️ Tags</button>
+    </nav>
+</header>
+
+<main>
+
+    <!-- ═══════════════════════════ STORES TAB ═══════════════════════════ -->
+    <div class="tab active" id="tab-stores">
+        <div class="card">
+            <div class="section-header"><h2>➕ Create Store</h2></div>
+            <form onsubmit="createStore(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" id="store-name" placeholder="e.g. Electronics Hub" required style="width:200px">
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="store-desc" placeholder="Short description" style="width:280px">
+                    </div>
+                    <button type="submit" class="btn btn-primary">+ Create Store</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="section-header"><h2>All Stores</h2></div>
+        <div class="list" id="stores-list"><div class="loading">Loading stores…</div></div>
+    </div>
+
+    <!-- ═══════════════════════════ ITEMS TAB ════════════════════════════ -->
+    <div class="tab" id="tab-items">
+        <div class="card">
+            <div class="section-header"><h2>➕ Create Item</h2></div>
+            <form onsubmit="createItem(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" id="item-name" placeholder="e.g. Laptop" required style="width:170px">
+                    </div>
+                    <div class="form-group">
+                        <label>Price *</label>
+                        <input type="number" id="item-price" placeholder="0.00" step="0.01" min="0" required style="width:100px">
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="item-desc" placeholder="Short description" style="width:220px">
+                    </div>
+                    <div class="form-group">
+                        <label>Store *</label>
+                        <select id="item-store-select" required style="width:170px">
+                            <option value="">Select store…</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">+ Create Item</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="section-header"><h2>All Items</h2></div>
+        <div class="list" id="items-list"><div class="loading">Loading items…</div></div>
+    </div>
+
+    <!-- ═══════════════════════════ TAGS TAB ═════════════════════════════ -->
+    <div class="tab" id="tab-tags">
+        <div class="card">
+            <div class="section-header"><h2>🏷️ Tag Management</h2></div>
+
+            <div class="form-row" style="margin-bottom:1rem">
+                <div class="form-group">
+                    <label>Store (scope for tags)</label>
+                    <select id="tag-store-select" onchange="loadTagsForStore()" style="width:220px">
+                        <option value="">Select a store…</option>
+                    </select>
+                </div>
+            </div>
+
+            <form onsubmit="createTag(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>New Tag Name *</label>
+                        <input type="text" id="tag-name" placeholder="e.g. Sale" required style="width:200px">
+                    </div>
+                    <button type="submit" class="btn btn-primary">+ Add Tag</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="section-header"><h2>Tags in Selected Store</h2></div>
+        <div class="list" id="tags-list">
+            <div class="empty">Select a store above to see its tags.</div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="card">
+            <div class="section-header"><h2>🔗 Link / Unlink Tag ↔ Item</h2></div>
+            <p style="font-size:0.85rem; color:#aaa; margin-bottom:1rem">
+                Tag and item must belong to the same store. Select a store above to populate the tag list.
+            </p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Item</label>
+                    <select id="link-item-select" style="width:210px">
+                        <option value="">Select item…</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tag</label>
+                    <select id="link-tag-select" style="width:210px">
+                        <option value="">Select tag…</option>
+                    </select>
+                </div>
+                <button onclick="linkTagToItem()" class="btn btn-success">🔗 Link</button>
+                <button onclick="unlinkTagFromItem()" class="btn btn-secondary">✂️ Unlink</button>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<!-- ══════════════════════════ EDIT STORE MODAL ══════════════════════════ -->
+<div class="modal-overlay" id="edit-store-modal">
+    <div class="modal">
+        <h3>✏️ Edit Store</h3>
+        <input type="hidden" id="edit-store-id">
+        <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="edit-store-name">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="edit-store-desc">
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal('edit-store-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveStore()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════ EDIT ITEM MODAL ═══════════════════════════ -->
+<div class="modal-overlay" id="edit-item-modal">
+    <div class="modal">
+        <h3>✏️ Edit Item</h3>
+        <input type="hidden" id="edit-item-id">
+        <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="edit-item-name">
+        </div>
+        <div class="form-group">
+            <label>Price</label>
+            <input type="number" id="edit-item-price" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="edit-item-desc">
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal('edit-item-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveItem()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG
+// The API base URL — same origin since Flask serves both the page and the API.
+// ─────────────────────────────────────────────────────────────────────────────
+const API = '';   // empty = same origin (http://127.0.0.1:5000)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILITIES
+// ─────────────────────────────────────────────────────────────────────────────
+
+function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast ${type} show`;
+    setTimeout(() => t.className = 'toast', 3000);
+}
+
+function showTab(name) {
+    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+    document.getElementById(`tab-${name}`).classList.add('active');
+    document.getElementById(`tab-btn-${name}`).classList.add('active');
+
+    if (name === 'stores') loadStores();
+    if (name === 'items')  { loadItems(); populateSelect('item-store-select'); }
+    if (name === 'tags')   { populateSelect('tag-store-select'); populateItemSelect(); }
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+/**
+ * Central fetch wrapper.
+ * – Attaches JSON content-type header
+ * – Parses error messages from the API
+ * – Returns null for 204 No Content
+ */
+async function apiFetch(url, opts = {}) {
+    const res = await fetch(API + url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...opts,
+    });
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || `HTTP ${res.status}`);
+    }
+    if (res.status === 204) return null;
+    return res.json();
+}
+
+function escQ(str) {
+    return (str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STORES  —  calls: GET /store · POST /store · PATCH /store/<id> · DELETE /store/<id>
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function loadStores() {
+    const list = document.getElementById('stores-list');
+    list.innerHTML = '<div class="loading">Loading…</div>';
+    try {
+        const stores = await apiFetch('/store');
+        // GET /store  →  200  [ { id, name, description, items[], tags[] } ]
+        if (!stores.length) {
+            list.innerHTML = '<div class="empty">No stores yet — create one above!</div>';
+            return;
+        }
+        list.innerHTML = stores.map(s => `
+            <div class="list-item">
+                <div class="info">
+                    <h3>${s.name}
+                        <span class="badge">${s.items.length} items</span>
+                        <span class="badge">${s.tags.length} tags</span>
+                    </h3>
+                    <p>${s.description || 'No description'} · ID: ${s.id}</p>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-secondary btn-sm"
+                        onclick="openEditStore(${s.id}, '${escQ(s.name)}', '${escQ(s.description || '')}')">
+                        ✏️ Edit
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteStore(${s.id})">🗑️ Delete</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    }
+}
+
+async function createStore(e) {
+    e.preventDefault();
+    const name        = document.getElementById('store-name').value.trim();
+    const description = document.getElementById('store-desc').value.trim() || null;
+    try {
+        // POST /store  →  201  { id, name, description, items[], tags[] }
+        await apiFetch('/store', { method: 'POST', body: JSON.stringify({ name, description }) });
+        showToast('Store created!');
+        document.getElementById('store-name').value = '';
+        document.getElementById('store-desc').value = '';
+        loadStores();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+function openEditStore(id, name, desc) {
+    document.getElementById('edit-store-id').value   = id;
+    document.getElementById('edit-store-name').value = name;
+    document.getElementById('edit-store-desc').value = desc;
+    openModal('edit-store-modal');
+}
+
+async function saveStore() {
+    const id          = document.getElementById('edit-store-id').value;
+    const name        = document.getElementById('edit-store-name').value.trim();
+    const description = document.getElementById('edit-store-desc').value.trim() || null;
+    try {
+        // PATCH /store/<id>  →  200  { id, name, description, items[], tags[] }
+        await apiFetch(`/store/${id}`, { method: 'PATCH', body: JSON.stringify({ name, description }) });
+        showToast('Store updated!');
+        closeModal('edit-store-modal');
+        loadStores();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function deleteStore(id) {
+    if (!confirm('Delete this store? All its items will also be deleted.')) return;
+    try {
+        // DELETE /store/<id>  →  204  (cascades to items)
+        await apiFetch(`/store/${id}`, { method: 'DELETE' });
+        showToast('Store deleted!', 'info');
+        loadStores();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ITEMS  —  calls: GET /item · POST /item · PATCH /item/<id> · DELETE /item/<id>
+//           also uses: GET /store  (to populate the store dropdown)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function loadItems() {
+    const list = document.getElementById('items-list');
+    list.innerHTML = '<div class="loading">Loading…</div>';
+    try {
+        // GET /item  →  200  [ { id, name, price, description, store{id,name}, tags[] } ]
+        const items = await apiFetch('/item');
+        if (!items.length) {
+            list.innerHTML = '<div class="empty">No items yet — create one above!</div>';
+            return;
+        }
+        list.innerHTML = items.map(item => `
+            <div class="list-item">
+                <div class="info">
+                    <h3>
+                        ${item.name}
+                        <span class="price">$${parseFloat(item.price).toFixed(2)}</span>
+                        <span class="store-chip">📦 ${item.store ? item.store.name : 'Unknown store'}</span>
+                    </h3>
+                    <p>
+                        ${item.description || 'No description'}
+                        &nbsp;·&nbsp; ID: ${item.id}
+                    </p>
+                    <div style="margin-top:0.4rem">
+                        ${(item.tags || []).map(t =>
+                            `<span class="tag removable" title="Click to unlink this tag"
+                                onclick="quickUnlink(${item.id}, ${t.id}, this)">${t.name} ✕</span>`
+                        ).join('') || '<span style="color:#ccc;font-size:0.78rem">No tags</span>'}
+                    </div>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-secondary btn-sm"
+                        onclick="openEditItem(${item.id}, '${escQ(item.name)}', ${item.price}, '${escQ(item.description || '')}')">
+                        ✏️ Edit
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteItem(${item.id})">🗑️ Delete</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    }
+}
+
+async function createItem(e) {
+    e.preventDefault();
+    const name        = document.getElementById('item-name').value.trim();
+    const price       = parseFloat(document.getElementById('item-price').value);
+    const description = document.getElementById('item-desc').value.trim() || null;
+    const store_id    = parseInt(document.getElementById('item-store-select').value);
+    if (!store_id) { showToast('Please select a store', 'error'); return; }
+    try {
+        // POST /item  →  201  { id, name, price, description, store{}, tags[] }
+        //   Body: { name, price, description, store_id }
+        await apiFetch('/item', { method: 'POST', body: JSON.stringify({ name, price, description, store_id }) });
+        showToast('Item created!');
+        document.getElementById('item-name').value  = '';
+        document.getElementById('item-price').value = '';
+        document.getElementById('item-desc').value  = '';
+        loadItems();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+function openEditItem(id, name, price, desc) {
+    document.getElementById('edit-item-id').value    = id;
+    document.getElementById('edit-item-name').value  = name;
+    document.getElementById('edit-item-price').value = price;
+    document.getElementById('edit-item-desc').value  = desc;
+    openModal('edit-item-modal');
+}
+
+async function saveItem() {
+    const id          = document.getElementById('edit-item-id').value;
+    const name        = document.getElementById('edit-item-name').value.trim();
+    const price       = parseFloat(document.getElementById('edit-item-price').value);
+    const description = document.getElementById('edit-item-desc').value.trim() || null;
+    try {
+        // PATCH /item/<id>  →  200  { id, name, price, description, store{}, tags[] }
+        //   Body: { name?, price?, description? }
+        await apiFetch(`/item/${id}`, { method: 'PATCH', body: JSON.stringify({ name, price, description }) });
+        showToast('Item updated!');
+        closeModal('edit-item-modal');
+        loadItems();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function deleteItem(id) {
+    if (!confirm('Delete this item?')) return;
+    try {
+        // DELETE /item/<id>  →  204
+        await apiFetch(`/item/${id}`, { method: 'DELETE' });
+        showToast('Item deleted!', 'info');
+        loadItems();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAGS  —  calls:
+//   GET  /store/<id>/tag        list tags for a store
+//   POST /store/<id>/tag        create tag in a store
+//   DELETE /store/<id>/tag/<id> delete tag (only if no linked items)
+//   POST   /item/<id>/tag/<id>  link tag → item
+//   DELETE /item/<id>/tag/<id>  unlink tag from item
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function loadTagsForStore() {
+    const storeId  = document.getElementById('tag-store-select').value;
+    const list     = document.getElementById('tags-list');
+    const tagSel   = document.getElementById('link-tag-select');
+
+    if (!storeId) {
+        list.innerHTML = '<div class="empty">Select a store above to see its tags.</div>';
+        tagSel.innerHTML = '<option value="">Select tag…</option>';
+        return;
+    }
+
+    list.innerHTML = '<div class="loading">Loading tags…</div>';
+    try {
+        // GET /store/<id>/tag  →  200  [ { id, name, store_id, store{}, items[] } ]
+        const tags = await apiFetch(`/store/${storeId}/tag`);
+
+        // populate the link-tag dropdown
+        tagSel.innerHTML = '<option value="">Select tag…</option>' +
+            tags.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+
+        if (!tags.length) {
+            list.innerHTML = '<div class="empty">No tags in this store yet.</div>';
+            return;
+        }
+        list.innerHTML = tags.map(t => `
+            <div class="list-item">
+                <div class="info">
+                    <h3>🏷️ ${t.name}</h3>
+                    <p>ID: ${t.id}
+                        ${t.items && t.items.length
+                            ? `· Linked to: ${t.items.map(i => `<strong>${i.name}</strong>`).join(', ')}`
+                            : '· Not linked to any item yet'}
+                    </p>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-danger btn-sm" onclick="deleteTag(${storeId}, ${t.id})">🗑️ Delete</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    }
+}
+
+async function createTag(e) {
+    e.preventDefault();
+    const storeId = document.getElementById('tag-store-select').value;
+    if (!storeId) { showToast('Select a store first', 'error'); return; }
+    const name = document.getElementById('tag-name').value.trim();
+    try {
+        // POST /store/<id>/tag  →  201  { id, name, store_id, store{}, items[] }
+        //   Body: { name }
+        await apiFetch(`/store/${storeId}/tag`, { method: 'POST', body: JSON.stringify({ name }) });
+        showToast('Tag created!');
+        document.getElementById('tag-name').value = '';
+        loadTagsForStore();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function deleteTag(storeId, tagId) {
+    if (!confirm('Delete this tag? It must not be linked to any items.')) return;
+    try {
+        // DELETE /store/<id>/tag/<id>  →  204  (fails if tag still linked to items)
+        await apiFetch(`/store/${storeId}/tag/${tagId}`, { method: 'DELETE' });
+        showToast('Tag deleted!', 'info');
+        loadTagsForStore();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function linkTagToItem() {
+    const itemId = document.getElementById('link-item-select').value;
+    const tagId  = document.getElementById('link-tag-select').value;
+    if (!itemId || !tagId) { showToast('Select both an item and a tag', 'error'); return; }
+    try {
+        // POST /item/<id>/tag/<id>  →  201  { message, item{}, tag{} }
+        await apiFetch(`/item/${itemId}/tag/${tagId}`, { method: 'POST' });
+        showToast('Tag linked to item!');
+        loadTagsForStore();   // refresh tag list (shows linked items)
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function unlinkTagFromItem() {
+    const itemId = document.getElementById('link-item-select').value;
+    const tagId  = document.getElementById('link-tag-select').value;
+    if (!itemId || !tagId) { showToast('Select both an item and a tag', 'error'); return; }
+    try {
+        // DELETE /item/<id>/tag/<id>  →  200  { message, item{}, tag{} }
+        await apiFetch(`/item/${itemId}/tag/${tagId}`, { method: 'DELETE' });
+        showToast('Tag unlinked!', 'info');
+        loadTagsForStore();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+/** Inline unlink — clicking a tag chip directly on an item card. */
+async function quickUnlink(itemId, tagId, chipEl) {
+    if (!confirm('Remove this tag from the item?')) return;
+    try {
+        await apiFetch(`/item/${itemId}/tag/${tagId}`, { method: 'DELETE' });
+        chipEl.remove();
+        showToast('Tag removed!', 'info');
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DROPDOWN HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Populate any <select> with the full store list. */
+async function populateSelect(selectId) {
+    const sel = document.getElementById(selectId);
+    try {
+        const stores = await apiFetch('/store');
+        // keep current value if possible
+        const current = sel.value;
+        sel.innerHTML = '<option value="">Select store…</option>' +
+            stores.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        if (current) sel.value = current;
+    } catch (_) { /* silently ignore */ }
+}
+
+/** Populate the link-item dropdown with all items. */
+async function populateItemSelect() {
+    const sel = document.getElementById('link-item-select');
+    try {
+        const items = await apiFetch('/item');
+        sel.innerHTML = '<option value="">Select item…</option>' +
+            items.map(i => `<option value="${i.id}">${i.name} (${i.store ? i.store.name : 'store ' + i.store_id})</option>`).join('');
+    } catch (_) { /* silently ignore */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT — load stores on page open
+// ─────────────────────────────────────────────────────────────────────────────
+loadStores();
+</script>
+</body>
+</html>

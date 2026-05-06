@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, render_template
 from flask_smorest import Api
 from db import db
 
@@ -78,5 +78,12 @@ def create_app(db_url: str | None = None) -> Flask:
     api.register_blueprint(store_blueprint)
     api.register_blueprint(item_blueprint)
     api.register_blueprint(tag_blueprint)
+
+    # ------------------------------------------------------------------
+    # Frontend – serve the HTML dashboard at the root URL
+    # ------------------------------------------------------------------
+    @app.route("/")
+    def index():
+        return render_template("index.html")
 
     return app
