@@ -1,6 +1,7 @@
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from flask_jwt_extended import jwt_required
 
 from db import db
 from models.models import StoreModel
@@ -17,6 +18,7 @@ class StoreList(MethodView):
         """List all stores."""
         return StoreModel.query.all()
 
+    @jwt_required()
     @blp.arguments(StoreSchema)
     @blp.response(201, StoreSchema)
     def post(self, store_data):
@@ -40,6 +42,7 @@ class Store(MethodView):
         """Get a store by ID."""
         return StoreModel.query.get_or_404(store_id)
 
+    @jwt_required()
     @blp.arguments(StoreUpdateSchema)
     @blp.response(200, StoreSchema)
     def patch(self, store_data, store_id):
@@ -55,6 +58,7 @@ class Store(MethodView):
             abort(500, message="An error occurred while updating the store.")
         return store
 
+    @jwt_required()
     @blp.response(204)
     def delete(self, store_id):
         """Delete a store (cascades to its items)."""

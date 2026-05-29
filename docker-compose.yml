@@ -1,0 +1,19 @@
+# ---------------------------------------------------------------------------
+# One-command run:
+#     docker compose up --build
+# The API is then available at http://localhost:5000
+# ---------------------------------------------------------------------------
+services:
+  api:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      # Override with a strong random secret in production.
+      JWT_SECRET_KEY: "change-me-in-production"
+    volumes:
+      # Persist the SQLite database (stored in /app/instance) across restarts.
+      - ecommerce-data:/app/instance
+
+volumes:
+  ecommerce-data:

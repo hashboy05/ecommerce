@@ -25,6 +25,45 @@
         nav button.active { background: #e94560; }
         nav button:hover:not(.active) { background: rgba(255,255,255,0.2); }
 
+        .header-right { display: flex; align-items: center; gap: 1.5rem; }
+        .auth-area { display: flex; align-items: center; gap: 0.5rem; }
+        .btn-auth {
+            padding: 0.4rem 1rem; border: 1.5px solid rgba(255,255,255,0.4);
+            border-radius: 20px; cursor: pointer; font-size: 0.82rem; font-weight: 600;
+            background: transparent; color: white; transition: all 0.2s;
+        }
+        .btn-auth:hover { background: rgba(255,255,255,0.15); }
+        .btn-auth.solid { background: #e94560; border-color: #e94560; }
+        .btn-auth.solid:hover { background: #c7304a; }
+        .user-chip { font-size: 0.85rem; font-weight: 600; color: #ffd966; }
+
+        /* ── Login gate (covers everything until authenticated) ── */
+        #auth-gate {
+            position: fixed; inset: 0; z-index: 500;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+            display: flex; align-items: center; justify-content: center; padding: 1rem;
+        }
+        body.authed #auth-gate { display: none; }
+        body:not(.authed) header,
+        body:not(.authed) main { display: none; }
+
+        .auth-card {
+            background: white; border-radius: 16px; padding: 2.5rem 2rem;
+            width: 370px; max-width: 92vw; text-align: center;
+            box-shadow: 0 25px 70px rgba(0,0,0,0.45);
+        }
+        .auth-card h1 { font-size: 1.5rem; color: #1a1a2e; margin-bottom: 0.3rem; }
+        .auth-sub { font-size: 0.85rem; color: #999; margin-bottom: 1.5rem; }
+        .gate-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+        .gate-tabs button {
+            flex: 1; padding: 0.6rem; border: none; border-radius: 8px; cursor: pointer;
+            font-size: 0.9rem; font-weight: 700; background: #f0f2f5; color: #888; transition: all 0.2s;
+        }
+        .gate-tabs button.active { background: #e94560; color: white; }
+        .auth-card .form-group { text-align: left; margin-bottom: 1rem; width: 100%; }
+        .auth-card .form-group input { width: 100%; }
+        .gate-error { color: #e94560; font-size: 0.82rem; margin-top: 0.9rem; min-height: 1rem; }
+
         main { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
 
         .tab { display: none; }
@@ -143,11 +182,14 @@
 
 <header>
     <h1>🛒 E-Commerce Manager</h1>
-    <nav>
-        <button onclick="showTab('stores')" id="tab-btn-stores" class="active">🏪 Stores</button>
-        <button onclick="showTab('items')"  id="tab-btn-items">📦 Items</button>
-        <button onclick="showTab('tags')"   id="tab-btn-tags">🏷️ Tags</button>
-    </nav>
+    <div class="header-right">
+        <nav>
+            <button onclick="showTab('stores')" id="tab-btn-stores" class="active">🏪 Stores</button>
+            <button onclick="showTab('items')"  id="tab-btn-items">📦 Items</button>
+            <button onclick="showTab('tags')"   id="tab-btn-tags">🏷️ Tags</button>
+        </nav>
+        <div class="auth-area" id="auth-area"></div>
+    </div>
 </header>
 
 <main>
@@ -310,6 +352,30 @@
     </div>
 </div>
 
+<!-- ══════════════════════════ LOGIN GATE (shown until authenticated) ══════════════════════════ -->
+<div id="auth-gate">
+    <div class="auth-card">
+        <h1>🛒 E-Commerce Manager</h1>
+        <p class="auth-sub">Log in or create an account to continue.</p>
+        <div class="gate-tabs">
+            <button id="gate-tab-login" class="active" onclick="setGateMode('login')">Login</button>
+            <button id="gate-tab-register" onclick="setGateMode('register')">Register</button>
+        </div>
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="gate-username" placeholder="username"
+                   onkeydown="if(event.key==='Enter')submitGate()">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="gate-password" placeholder="password"
+                   onkeydown="if(event.key==='Enter')submitGate()">
+        </div>
+        <button class="btn btn-primary" id="gate-submit" style="width:100%; padding:0.7rem" onclick="submitGate()">Login</button>
+        <p id="gate-error" class="gate-error"></p>
+    </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -352,10 +418,26 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
  * – Returns null for 204 No Content
  */
 async function apiFetch(url, opts = {}) {
-    const res = await fetch(API + url, {
-        headers: { 'Content-Type': 'application/json' },
-        ...opts,
-    });
+    // Merge headers and automatically attach the JWT (if we have one) so every
+    // protected write request is authenticated without the caller thinking about it.
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+    const token = getToken();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    const res = await fetch(API + url, { ...opts, headers });
+
+    if (res.status === 401) {
+        const body = await res.json().catch(() => ({}));
+        // If we *sent* a token and still got 401, it's expired/invalid — drop it.
+        if (token) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            document.body.classList.remove('authed');   // expired mid-session → back to gate
+            setGateMode('login');
+            updateAuthUI();
+        }
+        throw new Error(body.message || 'Please log in to perform this action.');
+    }
     if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message || `HTTP ${res.status}`);
@@ -366,6 +448,82 @@ async function apiFetch(url, opts = {}) {
 
 function escQ(str) {
     return (str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTHENTICATION
+//   POST /register  → create account
+//   POST /login     → obtain JWT access token (stored in localStorage)
+//   The token is sent as `Authorization: Bearer <token>` by apiFetch above.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getToken()    { return localStorage.getItem('token'); }
+function getUsername() { return localStorage.getItem('username'); }
+
+/** Render the auth corner of the header based on login state. */
+function updateAuthUI() {
+    const area = document.getElementById('auth-area');
+    if (getToken()) {
+        area.innerHTML = `
+            <span class="user-chip">👤 ${getUsername() || 'user'}</span>
+            <button class="btn-auth" onclick="logout()">Logout</button>`;
+    } else {
+        // Header is hidden behind the gate when logged out, so nothing to show here.
+        area.innerHTML = '';
+    }
+}
+
+let gateMode = 'login';   // 'login' | 'register'
+
+/** Toggle the gate between Login and Register modes. */
+function setGateMode(mode) {
+    gateMode = mode;
+    document.getElementById('gate-tab-login').classList.toggle('active', mode === 'login');
+    document.getElementById('gate-tab-register').classList.toggle('active', mode === 'register');
+    document.getElementById('gate-submit').textContent = mode === 'login' ? 'Login' : 'Create Account';
+    document.getElementById('gate-error').textContent = '';
+}
+
+/** Gate submit: register first (if in register mode), then log in for a token. */
+async function submitGate() {
+    const username = document.getElementById('gate-username').value.trim();
+    const password = document.getElementById('gate-password').value;
+    const err = document.getElementById('gate-error');
+    err.textContent = '';
+    if (!username || !password) { err.textContent = 'Enter a username and password.'; return; }
+    try {
+        if (gateMode === 'register') {
+            // POST /register → 201 { id, username }
+            await apiFetch('/register', { method: 'POST', body: JSON.stringify({ username, password }) });
+        }
+        // POST /login → 200 { access_token }
+        const data = await apiFetch('/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('username', username);
+        enterApp();
+        showToast(`Welcome, ${username}!`);
+    } catch (e) {
+        err.textContent = e.message;
+    }
+}
+
+/** Reveal the dashboard once authenticated and load its data. */
+function enterApp() {
+    document.body.classList.add('authed');
+    document.getElementById('gate-password').value = '';
+    updateAuthUI();
+    loadStores();
+}
+
+/** Clear the session and drop back to the login gate. */
+function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    document.body.classList.remove('authed');
+    setGateMode('login');
+    document.getElementById('gate-username').value = '';
+    document.getElementById('gate-password').value = '';
+    showToast('Logged out', 'info');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -711,9 +869,12 @@ async function populateItemSelect() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// INIT — load stores on page open
+// INIT — show the dashboard only if already logged in, otherwise show the gate
 // ─────────────────────────────────────────────────────────────────────────────
-loadStores();
+setGateMode('login');
+if (getToken()) {
+    enterApp();
+}
 </script>
 </body>
 </html>

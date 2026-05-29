@@ -1,6 +1,7 @@
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from sqlalchemy.exc import SQLAlchemyError
+from flask_jwt_extended import jwt_required
 
 from db import db
 from models.models import TagModel, StoreModel, ItemModel
@@ -18,6 +19,7 @@ class TagsInStore(MethodView):
         store = StoreModel.query.get_or_404(store_id)
         return store.tags.all()
 
+    @jwt_required()
     @blp.arguments(PlainTagSchema)
     @blp.response(201, TagSchema)
     def post(self, tag_data, store_id):
@@ -45,6 +47,7 @@ class TagInStore(MethodView):
         tag = TagModel.query.filter_by(id=tag_id, store_id=store_id).first_or_404()
         return tag
 
+    @jwt_required()
     @blp.response(204)
     def delete(self, store_id, tag_id):
         """Delete a tag from a store (only if not linked to any items)."""
@@ -61,6 +64,7 @@ class TagInStore(MethodView):
 @blp.route("/item/<int:item_id>/tag/<int:tag_id>")
 class LinkTagsToItem(MethodView):
 
+    @jwt_required()
     @blp.response(201, TagAndItemSchema)
     def post(self, item_id, tag_id):
         """Assign a tag to an item."""
@@ -77,6 +81,7 @@ class LinkTagsToItem(MethodView):
             abort(500, message="An error occurred while linking the tag.")
         return {"message": "Tag linked to item.", "item": item, "tag": tag}
 
+    @jwt_required()
     @blp.response(200, TagAndItemSchema)
     def delete(self, item_id, tag_id):
         """Remove a tag from an item."""

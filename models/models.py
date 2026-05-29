@@ -87,3 +87,20 @@ class TagModel(db.Model):
 
     store = db.relationship("StoreModel", back_populates="tags")
     items = db.relationship("ItemModel", secondary=items_tags, back_populates="tags")
+
+
+class UserModel(db.Model):
+    """
+    Represents an account that can authenticate against the API.
+
+    Only the password *hash* is ever stored — the plaintext password is
+    discarded immediately after hashing in the registration endpoint.
+    The username is unique so it can be used as a login identifier.
+    """
+
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    # Holds a Werkzeug pbkdf2/scrypt hash, never the raw password.
+    password = db.Column(db.String(256), nullable=False)

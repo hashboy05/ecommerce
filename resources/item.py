@@ -1,6 +1,7 @@
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from sqlalchemy.exc import SQLAlchemyError
+from flask_jwt_extended import jwt_required
 
 from db import db
 from models.models import ItemModel, StoreModel
@@ -17,6 +18,7 @@ class ItemList(MethodView):
         """List all items."""
         return ItemModel.query.all()
 
+    @jwt_required()
     @blp.arguments(ItemSchema)
     @blp.response(201, ItemSchema)
     def post(self, item_data):
@@ -39,6 +41,7 @@ class Item(MethodView):
         """Get an item by ID."""
         return ItemModel.query.get_or_404(item_id)
 
+    @jwt_required()
     @blp.arguments(ItemUpdateSchema)
     @blp.response(200, ItemSchema)
     def patch(self, item_data, item_id):
@@ -52,6 +55,7 @@ class Item(MethodView):
             abort(500, message="An error occurred while updating the item.")
         return item
 
+    @jwt_required()
     @blp.response(204)
     def delete(self, item_id):
         """Delete an item."""
