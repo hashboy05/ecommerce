@@ -39,6 +39,13 @@ def create_app(db_url: str | None = None) -> Flask:
     app.config["OPENAPI_SWAGGER_UI_URL"] = (
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
     )
+    # Advertise the JWT bearer scheme globally so the Swagger UI renders an
+    # "Authorize" button and attaches the token to requests. (Read endpoints
+    # are still public — that is enforced in code by the absence of
+    # @jwt_required; the global marking here is just for the interactive docs.)
+    app.config["API_SPEC_OPTIONS"] = {
+        "security": [{"BearerAuth": []}],
+    }
 
     # Database – prefer explicit argument, then env var, then SQLite default
     app.config["SQLALCHEMY_DATABASE_URI"] = (
@@ -64,6 +71,13 @@ def create_app(db_url: str | None = None) -> Flask:
     db.init_app(app)
 
     api = Api(app)
+
+    # Register the bearer-token security scheme referenced by API_SPEC_OPTIONS
+    # above, so Swagger UI knows to send "Authorization: Bearer <token>".
+    api.spec.components.security_scheme(
+        "BearerAuth",
+        {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"},
+    )
 
     # JWTManager wires token creation/verification into the app and lets us
     # customise the JSON returned when authentication fails so that every
@@ -100,6 +114,9 @@ def create_app(db_url: str | None = None) -> Flask:
             ItemModel,
             TagModel,
             UserModel,
+            SupplierModel,
+            CategoryModel,
+            StockMovementModel,
         )
         db.create_all()
 
@@ -115,11 +132,17 @@ def create_app(db_url: str | None = None) -> Flask:
     from resources.item import blp as item_blueprint
     from resources.tag import blp as tag_blueprint
     from resources.user import blp as user_blueprint
+    from resources.supplier import blp as supplier_blueprint
+    from resources.category import blp as category_blueprint
+    from resources.stock_movement import blp as stock_blueprint
 
     api.register_blueprint(store_blueprint)
     api.register_blueprint(item_blueprint)
     api.register_blueprint(tag_blueprint)
     api.register_blueprint(user_blueprint)
+    api.register_blueprint(supplier_blueprint)
+    api.register_blueprint(category_blueprint)
+    api.register_blueprint(stock_blueprint)
 
     # ------------------------------------------------------------------
     # Frontend – serve the HTML dashboard at the root URL

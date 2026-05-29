@@ -186,6 +186,8 @@
         <nav>
             <button onclick="showTab('stores')" id="tab-btn-stores" class="active">🏪 Stores</button>
             <button onclick="showTab('items')"  id="tab-btn-items">📦 Items</button>
+            <button onclick="showTab('categories')" id="tab-btn-categories">🗂️ Categories</button>
+            <button onclick="showTab('suppliers')"  id="tab-btn-suppliers">🚚 Suppliers</button>
             <button onclick="showTab('tags')"   id="tab-btn-tags">🏷️ Tags</button>
         </nav>
         <div class="auth-area" id="auth-area"></div>
@@ -239,6 +241,18 @@
                         <label>Store *</label>
                         <select id="item-store-select" required style="width:170px">
                             <option value="">Select store…</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="item-category-select" style="width:150px">
+                            <option value="">— none —</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Supplier</label>
+                        <select id="item-supplier-select" style="width:150px">
+                            <option value="">— none —</option>
                         </select>
                     </div>
                     <button type="submit" class="btn btn-primary">+ Create Item</button>
@@ -304,6 +318,54 @@
                 <button onclick="unlinkTagFromItem()" class="btn btn-secondary">✂️ Unlink</button>
             </div>
         </div>
+    </div>
+
+    <!-- ═══════════════════════════ CATEGORIES TAB ═══════════════════════════ -->
+    <div class="tab" id="tab-categories">
+        <div class="card">
+            <div class="section-header"><h2>➕ Create Category</h2></div>
+            <form onsubmit="createCategory(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" id="category-name" placeholder="e.g. Laptops" required style="width:200px">
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="category-desc" placeholder="Short description" style="width:280px">
+                    </div>
+                    <button type="submit" class="btn btn-primary">+ Create Category</button>
+                </div>
+            </form>
+        </div>
+        <div class="section-header"><h2>All Categories</h2></div>
+        <div class="list" id="categories-list"><div class="loading">Loading…</div></div>
+    </div>
+
+    <!-- ═══════════════════════════ SUPPLIERS TAB ════════════════════════════ -->
+    <div class="tab" id="tab-suppliers">
+        <div class="card">
+            <div class="section-header"><h2>➕ Add Supplier</h2></div>
+            <form onsubmit="createSupplier(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" id="supplier-name" placeholder="e.g. Acme Supplies" required style="width:200px">
+                    </div>
+                    <div class="form-group">
+                        <label>Contact email</label>
+                        <input type="text" id="supplier-email" placeholder="sales@acme.com" style="width:200px">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="text" id="supplier-phone" placeholder="+1 555 0100" style="width:150px">
+                    </div>
+                    <button type="submit" class="btn btn-primary">+ Add Supplier</button>
+                </div>
+            </form>
+        </div>
+        <div class="section-header"><h2>All Suppliers</h2></div>
+        <div class="list" id="suppliers-list"><div class="loading">Loading…</div></div>
     </div>
 
 </main>
@@ -376,6 +438,34 @@
     </div>
 </div>
 
+<!-- ══════════════════════════ STOCK MOVEMENT MODAL ══════════════════════════ -->
+<div class="modal-overlay" id="stock-modal">
+    <div class="modal">
+        <h3>📦 Stock — <span id="stock-item-name"></span></h3>
+        <input type="hidden" id="stock-item-id">
+        <p style="font-size:0.9rem;color:#666;margin-bottom:1rem">
+            Current stock: <strong id="stock-current">0</strong>
+        </p>
+        <div class="form-row" style="align-items:flex-end">
+            <div class="form-group">
+                <label>Change (+ in / − out)</label>
+                <input type="number" id="stock-change" placeholder="e.g. 10 or -3" style="width:130px">
+            </div>
+            <div class="form-group">
+                <label>Reason</label>
+                <input type="text" id="stock-reason" placeholder="e.g. delivery" style="width:160px">
+            </div>
+            <button class="btn btn-primary" onclick="submitMovement()">Record</button>
+        </div>
+        <hr class="divider">
+        <h4 style="font-size:0.85rem;color:#888;margin-bottom:0.5rem">History</h4>
+        <div id="stock-history" style="max-height:200px;overflow-y:auto"></div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal('stock-modal')">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -404,7 +494,14 @@ function showTab(name) {
     document.getElementById(`tab-btn-${name}`).classList.add('active');
 
     if (name === 'stores') loadStores();
-    if (name === 'items')  { loadItems(); populateSelect('item-store-select'); }
+    if (name === 'items')  {
+        loadItems();
+        populateSelect('item-store-select');
+        populateCategorySelect('item-category-select');
+        populateSupplierSelect('item-supplier-select');
+    }
+    if (name === 'categories') loadCategories();
+    if (name === 'suppliers')  loadSuppliers();
     if (name === 'tags')   { populateSelect('tag-store-select'); populateItemSelect(); }
 }
 
@@ -634,11 +731,13 @@ async function loadItems() {
                     <h3>
                         ${item.name}
                         <span class="price">$${parseFloat(item.price).toFixed(2)}</span>
-                        <span class="store-chip">📦 ${item.store ? item.store.name : 'Unknown store'}</span>
+                        <span class="badge" title="Current stock (derived from movements)">📦 ${item.stock ?? 0} in stock</span>
                     </h3>
                     <p>
                         ${item.description || 'No description'}
-                        &nbsp;·&nbsp; ID: ${item.id}
+                        &nbsp;·&nbsp; 🏪 ${item.store ? item.store.name : 'Unknown'}
+                        &nbsp;·&nbsp; 🗂️ ${item.category ? item.category.name : 'Uncategorized'}
+                        &nbsp;·&nbsp; 🚚 ${item.supplier ? item.supplier.name : 'No supplier'}
                     </p>
                     <div style="margin-top:0.4rem">
                         ${(item.tags || []).map(t =>
@@ -648,6 +747,7 @@ async function loadItems() {
                     </div>
                 </div>
                 <div class="actions">
+                    <button class="btn btn-secondary btn-sm" onclick="openStock(${item.id}, '${escQ(item.name)}')">📦 Stock</button>
                     <button class="btn btn-secondary btn-sm"
                         onclick="openEditItem(${item.id}, '${escQ(item.name)}', ${item.price}, '${escQ(item.description || '')}')">
                         ✏️ Edit
@@ -667,11 +767,15 @@ async function createItem(e) {
     const price       = parseFloat(document.getElementById('item-price').value);
     const description = document.getElementById('item-desc').value.trim() || null;
     const store_id    = parseInt(document.getElementById('item-store-select').value);
+    const categoryVal = document.getElementById('item-category-select').value;
+    const supplierVal = document.getElementById('item-supplier-select').value;
     if (!store_id) { showToast('Please select a store', 'error'); return; }
+    const body = { name, price, description, store_id };
+    if (categoryVal) body.category_id = parseInt(categoryVal);
+    if (supplierVal) body.supplier_id = parseInt(supplierVal);
     try {
-        // POST /item  →  201  { id, name, price, description, store{}, tags[] }
-        //   Body: { name, price, description, store_id }
-        await apiFetch('/item', { method: 'POST', body: JSON.stringify({ name, price, description, store_id }) });
+        // POST /item  →  201  { ..., store{}, category{}, supplier{}, stock, tags[] }
+        await apiFetch('/item', { method: 'POST', body: JSON.stringify(body) });
         showToast('Item created!');
         document.getElementById('item-name').value  = '';
         document.getElementById('item-price').value = '';
@@ -866,6 +970,160 @@ async function populateItemSelect() {
         sel.innerHTML = '<option value="">Select item…</option>' +
             items.map(i => `<option value="${i.id}">${i.name} (${i.store ? i.store.name : 'store ' + i.store_id})</option>`).join('');
     } catch (_) { /* silently ignore */ }
+}
+
+/** Populate a <select> with all categories (optional → "none"). */
+async function populateCategorySelect(selectId) {
+    const sel = document.getElementById(selectId);
+    try {
+        const cats = await apiFetch('/category');
+        sel.innerHTML = '<option value="">— none —</option>' +
+            cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    } catch (_) { /* silently ignore */ }
+}
+
+/** Populate a <select> with all suppliers (optional → "none"). */
+async function populateSupplierSelect(selectId) {
+    const sel = document.getElementById(selectId);
+    try {
+        const sups = await apiFetch('/supplier');
+        sel.innerHTML = '<option value="">— none —</option>' +
+            sups.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    } catch (_) { /* silently ignore */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CATEGORIES  —  GET/POST /category · DELETE /category/<id>
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadCategories() {
+    const list = document.getElementById('categories-list');
+    list.innerHTML = '<div class="loading">Loading…</div>';
+    try {
+        const cats = await apiFetch('/category');
+        if (!cats.length) { list.innerHTML = '<div class="empty">No categories yet — create one above!</div>'; return; }
+        list.innerHTML = cats.map(c => `
+            <div class="list-item">
+                <div class="info">
+                    <h3>🗂️ ${c.name} <span class="badge">${(c.items || []).length} items</span></h3>
+                    <p>${c.description || 'No description'} · ID: ${c.id}</p>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-danger btn-sm" onclick="deleteCategory(${c.id})">🗑️ Delete</button>
+                </div>
+            </div>`).join('');
+    } catch (e) { list.innerHTML = `<div class="empty">Error: ${e.message}</div>`; }
+}
+
+async function createCategory(e) {
+    e.preventDefault();
+    const name = document.getElementById('category-name').value.trim();
+    const description = document.getElementById('category-desc').value.trim() || null;
+    try {
+        await apiFetch('/category', { method: 'POST', body: JSON.stringify({ name, description }) });
+        showToast('Category created!');
+        document.getElementById('category-name').value = '';
+        document.getElementById('category-desc').value = '';
+        loadCategories();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function deleteCategory(id) {
+    if (!confirm('Delete this category? Items keep existing but become uncategorized.')) return;
+    try {
+        await apiFetch(`/category/${id}`, { method: 'DELETE' });
+        showToast('Category deleted!', 'info');
+        loadCategories();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPPLIERS  —  GET/POST /supplier · DELETE /supplier/<id>
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadSuppliers() {
+    const list = document.getElementById('suppliers-list');
+    list.innerHTML = '<div class="loading">Loading…</div>';
+    try {
+        const sups = await apiFetch('/supplier');
+        if (!sups.length) { list.innerHTML = '<div class="empty">No suppliers yet — add one above!</div>'; return; }
+        list.innerHTML = sups.map(s => `
+            <div class="list-item">
+                <div class="info">
+                    <h3>🚚 ${s.name} <span class="badge">${(s.items || []).length} items</span></h3>
+                    <p>${s.contact_email || 'No email'} · ${s.phone || 'No phone'} · ID: ${s.id}</p>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-danger btn-sm" onclick="deleteSupplier(${s.id})">🗑️ Delete</button>
+                </div>
+            </div>`).join('');
+    } catch (e) { list.innerHTML = `<div class="empty">Error: ${e.message}</div>`; }
+}
+
+async function createSupplier(e) {
+    e.preventDefault();
+    const name = document.getElementById('supplier-name').value.trim();
+    const contact_email = document.getElementById('supplier-email').value.trim() || null;
+    const phone = document.getElementById('supplier-phone').value.trim() || null;
+    try {
+        await apiFetch('/supplier', { method: 'POST', body: JSON.stringify({ name, contact_email, phone }) });
+        showToast('Supplier added!');
+        document.getElementById('supplier-name').value = '';
+        document.getElementById('supplier-email').value = '';
+        document.getElementById('supplier-phone').value = '';
+        loadSuppliers();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function deleteSupplier(id) {
+    if (!confirm('Delete this supplier? Items keep existing but lose this supplier link.')) return;
+    try {
+        await apiFetch(`/supplier/${id}`, { method: 'DELETE' });
+        showToast('Supplier deleted!', 'info');
+        loadSuppliers();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STOCK MOVEMENTS  —  GET/POST /item/<id>/movement   (current stock is derived)
+// ─────────────────────────────────────────────────────────────────────────────
+async function openStock(itemId, itemName) {
+    document.getElementById('stock-item-id').value = itemId;
+    document.getElementById('stock-item-name').textContent = itemName;
+    document.getElementById('stock-change').value = '';
+    document.getElementById('stock-reason').value = '';
+    openModal('stock-modal');
+    loadMovements(itemId);
+}
+
+async function loadMovements(itemId) {
+    const hist = document.getElementById('stock-history');
+    hist.innerHTML = '<div class="loading">Loading…</div>';
+    try {
+        const moves = await apiFetch(`/item/${itemId}/movement`);
+        const total = moves.reduce((sum, m) => sum + m.change, 0);
+        document.getElementById('stock-current').textContent = total;
+        if (!moves.length) { hist.innerHTML = '<div class="empty">No movements yet.</div>'; return; }
+        hist.innerHTML = moves.map(m => `
+            <div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid #f0f0f0;font-size:0.85rem">
+                <span style="font-weight:700;color:${m.change >= 0 ? '#28a745' : '#e94560'}">${m.change >= 0 ? '+' : ''}${m.change}</span>
+                <span style="color:#888">${m.reason || '—'}</span>
+                <span style="color:#bbb">${(m.created_at || '').replace('T', ' ').slice(0, 16)}</span>
+            </div>`).join('');
+    } catch (e) { hist.innerHTML = `<div class="empty">Error: ${e.message}</div>`; }
+}
+
+async function submitMovement() {
+    const itemId = document.getElementById('stock-item-id').value;
+    const change = parseInt(document.getElementById('stock-change').value);
+    const reason = document.getElementById('stock-reason').value.trim() || null;
+    if (!change) { showToast('Enter a non-zero change', 'error'); return; }
+    try {
+        await apiFetch(`/item/${itemId}/movement`, { method: 'POST', body: JSON.stringify({ change, reason }) });
+        showToast('Stock updated!');
+        document.getElementById('stock-change').value = '';
+        document.getElementById('stock-reason').value = '';
+        loadMovements(itemId);
+        loadItems();   // refresh the stock badge on the item cards
+    } catch (e) { showToast(e.message, 'error'); }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

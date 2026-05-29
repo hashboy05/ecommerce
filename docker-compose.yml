@@ -1,19 +1,35 @@
 # ---------------------------------------------------------------------------
-# One-command run:
-#     docker compose up --build
+# One-command run:  docker compose up --build
+# Starts a PostgreSQL database and the API, wired together.
 # The API is then available at http://localhost:5000
 # ---------------------------------------------------------------------------
 services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ecommerce
+      POSTGRES_PASSWORD: ecommerce
+      POSTGRES_DB: ecommerce
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The API waits for this to pass before it starts (see depends_on below).
+      test: ["CMD-SHELL", "pg_isready -U ecommerce"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   api:
     build: .
     ports:
       - "5000:5000"
     environment:
-      # Override with a strong random secret in production.
       JWT_SECRET_KEY: "change-me-in-production"
-    volumes:
-      # Persist the SQLite database (stored in /app/instance) across restarts.
-      - ecommerce-data:/app/instance
+      # Point SQLAlchemy at the Postgres service above (host = service name "db").
+      DATABASE_URL: "postgresql://ecommerce:ecommerce@db:5432/ecommerce"
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
-  ecommerce-data:
+  pgdata:

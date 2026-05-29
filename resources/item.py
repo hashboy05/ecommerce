@@ -4,7 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from flask_jwt_extended import jwt_required
 
 from db import db
-from models.models import ItemModel, StoreModel
+from models.models import ItemModel, StoreModel, SupplierModel, CategoryModel
 from schemas import ItemSchema, ItemUpdateSchema
 
 blp = Blueprint("items", __name__, description="Operations on items")
@@ -24,6 +24,10 @@ class ItemList(MethodView):
     def post(self, item_data):
         """Create a new item inside an existing store."""
         StoreModel.query.get_or_404(item_data["store_id"])
+        if item_data.get("supplier_id") is not None:
+            SupplierModel.query.get_or_404(item_data["supplier_id"])
+        if item_data.get("category_id") is not None:
+            CategoryModel.query.get_or_404(item_data["category_id"])
         item = ItemModel(**item_data)
         try:
             db.session.add(item)
@@ -47,6 +51,10 @@ class Item(MethodView):
     def patch(self, item_data, item_id):
         """Partially update an item."""
         item = ItemModel.query.get_or_404(item_id)
+        if item_data.get("supplier_id") is not None:
+            SupplierModel.query.get_or_404(item_data["supplier_id"])
+        if item_data.get("category_id") is not None:
+            CategoryModel.query.get_or_404(item_data["category_id"])
         for key, value in item_data.items():
             setattr(item, key, value)
         try:
