@@ -195,3 +195,33 @@ class StockMovementModel(db.Model):
 
     item = db.relationship("ItemModel", back_populates="movements")
     user = db.relationship("UserModel")
+
+
+class PurchaseOrderModel(db.Model):
+    """
+    A restock order placed with a Supplier for a quantity of one Item.
+
+    Workflow: created as ``pending``; when marked ``received`` the system records
+    a positive StockMovement for the item, so ordering and stock stay in sync.
+
+    Relationships
+    -------------
+    supplier : many-to-one (who the order is placed with)
+    item     : many-to-one (what is being ordered)
+    user     : many-to-one (the staff member who placed the order)
+    """
+
+    __tablename__ = "purchase_orders"
+
+    id = db.Column(db.Integer, primary_key=True)
+    quantity = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default="pending")
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    supplier_id = db.Column(db.Integer, db.ForeignKey("suppliers.id"), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey("items.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
+    supplier = db.relationship("SupplierModel")
+    item = db.relationship("ItemModel")
+    user = db.relationship("UserModel")

@@ -5,6 +5,7 @@ from schemas.user import UserSchema
 from schemas.supplier import PlainSupplierSchema, SupplierSchema, SupplierUpdateSchema
 from schemas.category import PlainCategorySchema, CategorySchema, CategoryUpdateSchema
 from schemas.stock_movement import StockMovementSchema
+from schemas.purchase_order import PurchaseOrderSchema
 
 __all__ = [
     "PlainStoreSchema", "StoreSchema", "StoreUpdateSchema",
@@ -14,4 +15,5 @@ __all__ = [
     "PlainSupplierSchema", "SupplierSchema", "SupplierUpdateSchema",
     "PlainCategorySchema", "CategorySchema", "CategoryUpdateSchema",
     "StockMovementSchema",
+    "PurchaseOrderSchema",
 ]

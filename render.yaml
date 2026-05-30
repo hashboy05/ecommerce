@@ -1,0 +1,24 @@
+# ---------------------------------------------------------------------------
+# Render Blueprint — one-click deploy of the API + a PostgreSQL database.
+#
+# In the Render dashboard:  New +  ->  Blueprint  ->  pick this repo  ->  Apply.
+# Render reads this file, builds the Docker image, provisions a free Postgres
+# database, and wires DATABASE_URL into the web service automatically.
+# ---------------------------------------------------------------------------
+services:
+  - type: web
+    name: ecommerce-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: JWT_SECRET_KEY
+        generateValue: true          # Render generates a strong random secret
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecommerce-db
+          property: connectionString  # app normalises postgres:// -> postgresql://
+
+databases:
+  - name: ecommerce-db
+    plan: free

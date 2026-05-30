@@ -188,6 +188,7 @@
             <button onclick="showTab('items')"  id="tab-btn-items">📦 Items</button>
             <button onclick="showTab('categories')" id="tab-btn-categories">🗂️ Categories</button>
             <button onclick="showTab('suppliers')"  id="tab-btn-suppliers">🚚 Suppliers</button>
+            <button onclick="showTab('purchaseorders')" id="tab-btn-purchaseorders">📋 Orders</button>
             <button onclick="showTab('tags')"   id="tab-btn-tags">🏷️ Tags</button>
         </nav>
         <div class="auth-area" id="auth-area"></div>
@@ -368,6 +369,39 @@
         <div class="list" id="suppliers-list"><div class="loading">Loading…</div></div>
     </div>
 
+    <!-- ═══════════════════════════ PURCHASE ORDERS TAB ══════════════════════════ -->
+    <div class="tab" id="tab-purchaseorders">
+        <div class="card">
+            <div class="section-header"><h2>➕ Place Purchase Order</h2></div>
+            <p style="font-size:0.85rem; color:#aaa; margin-bottom:1rem">
+                Order stock from a supplier. When the delivery arrives, click <strong>Receive</strong> and the stock is added automatically.
+            </p>
+            <form onsubmit="createPurchaseOrder(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Supplier *</label>
+                        <select id="po-supplier-select" required style="width:190px">
+                            <option value="">Select supplier…</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Item *</label>
+                        <select id="po-item-select" required style="width:210px">
+                            <option value="">Select item…</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Quantity *</label>
+                        <input type="number" id="po-quantity" placeholder="e.g. 50" min="1" required style="width:110px">
+                    </div>
+                    <button type="submit" class="btn btn-primary">+ Place Order</button>
+                </div>
+            </form>
+        </div>
+        <div class="section-header"><h2>All Purchase Orders</h2></div>
+        <div class="list" id="purchaseorders-list"><div class="loading">Loading…</div></div>
+    </div>
+
 </main>
 
 <!-- ══════════════════════════ EDIT STORE MODAL ══════════════════════════ -->
@@ -406,6 +440,14 @@
         <div class="form-group">
             <label>Description</label>
             <input type="text" id="edit-item-desc">
+        </div>
+        <div class="form-group">
+            <label>Category</label>
+            <select id="edit-item-category" style="width:100%"><option value="">— none —</option></select>
+        </div>
+        <div class="form-group">
+            <label>Supplier</label>
+            <select id="edit-item-supplier" style="width:100%"><option value="">— none —</option></select>
         </div>
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeModal('edit-item-modal')">Cancel</button>
@@ -502,6 +544,11 @@ function showTab(name) {
     }
     if (name === 'categories') loadCategories();
     if (name === 'suppliers')  loadSuppliers();
+    if (name === 'purchaseorders') {
+        loadPurchaseOrders();
+        populateSupplierSelect('po-supplier-select');
+        populatePOItemSelect();
+    }
     if (name === 'tags')   { populateSelect('tag-store-select'); populateItemSelect(); }
 }
 
@@ -545,6 +592,22 @@ async function apiFetch(url, opts = {}) {
 
 function escQ(str) {
     return (str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+/** Render a collapsible list of items (with stock) for store/category/supplier cards. */
+function itemsDetails(items) {
+    if (!items || !items.length) {
+        return '<p style="font-size:0.8rem;color:#ccc;margin-top:0.4rem">No items.</p>';
+    }
+    const rows = items.map(i => `
+        <div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid #f3f3f3;font-size:0.85rem">
+            <span>${i.name}</span>
+            <span style="color:#999">$${parseFloat(i.price).toFixed(2)} · <strong style="color:#1a1a2e">${i.stock ?? 0}</strong> in stock</span>
+        </div>`).join('');
+    return `<details style="margin-top:0.5rem">
+        <summary style="cursor:pointer;color:#e94560;font-size:0.83rem;font-weight:600">View ${items.length} item(s)</summary>
+        <div style="margin-top:0.4rem">${rows}</div>
+    </details>`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -645,6 +708,7 @@ async function loadStores() {
                         <span class="badge">${s.tags.length} tags</span>
                     </h3>
                     <p>${s.description || 'No description'} · ID: ${s.id}</p>
+                    ${itemsDetails(s.items)}
                 </div>
                 <div class="actions">
                     <button class="btn btn-secondary btn-sm"
@@ -749,7 +813,7 @@ async function loadItems() {
                 <div class="actions">
                     <button class="btn btn-secondary btn-sm" onclick="openStock(${item.id}, '${escQ(item.name)}')">📦 Stock</button>
                     <button class="btn btn-secondary btn-sm"
-                        onclick="openEditItem(${item.id}, '${escQ(item.name)}', ${item.price}, '${escQ(item.description || '')}')">
+                        onclick="openEditItem(${item.id}, '${escQ(item.name)}', ${item.price}, '${escQ(item.description || '')}', ${item.category ? item.category.id : 'null'}, ${item.supplier ? item.supplier.id : 'null'})">
                         ✏️ Edit
                     </button>
                     <button class="btn btn-danger btn-sm" onclick="deleteItem(${item.id})">🗑️ Delete</button>
@@ -786,12 +850,17 @@ async function createItem(e) {
     }
 }
 
-function openEditItem(id, name, price, desc) {
+async function openEditItem(id, name, price, desc, categoryId, supplierId) {
     document.getElementById('edit-item-id').value    = id;
     document.getElementById('edit-item-name').value  = name;
     document.getElementById('edit-item-price').value = price;
     document.getElementById('edit-item-desc').value  = desc;
     openModal('edit-item-modal');
+    // Fill the dropdowns, then preselect the item's current category/supplier.
+    await populateCategorySelect('edit-item-category');
+    await populateSupplierSelect('edit-item-supplier');
+    document.getElementById('edit-item-category').value = categoryId != null ? categoryId : '';
+    document.getElementById('edit-item-supplier').value = supplierId != null ? supplierId : '';
 }
 
 async function saveItem() {
@@ -799,10 +868,14 @@ async function saveItem() {
     const name        = document.getElementById('edit-item-name').value.trim();
     const price       = parseFloat(document.getElementById('edit-item-price').value);
     const description = document.getElementById('edit-item-desc').value.trim() || null;
+    const catVal      = document.getElementById('edit-item-category').value;
+    const supVal      = document.getElementById('edit-item-supplier').value;
+    // A chosen id sets the link; an empty selection sends null to clear it.
+    const category_id = catVal ? parseInt(catVal) : null;
+    const supplier_id = supVal ? parseInt(supVal) : null;
     try {
-        // PATCH /item/<id>  →  200  { id, name, price, description, store{}, tags[] }
-        //   Body: { name?, price?, description? }
-        await apiFetch(`/item/${id}`, { method: 'PATCH', body: JSON.stringify({ name, price, description }) });
+        // PATCH /item/<id>  →  200  Body: { name?, price?, description?, category_id?, supplier_id? }
+        await apiFetch(`/item/${id}`, { method: 'PATCH', body: JSON.stringify({ name, price, description, category_id, supplier_id }) });
         showToast('Item updated!');
         closeModal('edit-item-modal');
         loadItems();
@@ -1006,6 +1079,7 @@ async function loadCategories() {
                 <div class="info">
                     <h3>🗂️ ${c.name} <span class="badge">${(c.items || []).length} items</span></h3>
                     <p>${c.description || 'No description'} · ID: ${c.id}</p>
+                    ${itemsDetails(c.items)}
                 </div>
                 <div class="actions">
                     <button class="btn btn-danger btn-sm" onclick="deleteCategory(${c.id})">🗑️ Delete</button>
@@ -1050,6 +1124,7 @@ async function loadSuppliers() {
                 <div class="info">
                     <h3>🚚 ${s.name} <span class="badge">${(s.items || []).length} items</span></h3>
                     <p>${s.contact_email || 'No email'} · ${s.phone || 'No phone'} · ID: ${s.id}</p>
+                    ${itemsDetails(s.items)}
                 </div>
                 <div class="actions">
                     <button class="btn btn-danger btn-sm" onclick="deleteSupplier(${s.id})">🗑️ Delete</button>
@@ -1123,6 +1198,75 @@ async function submitMovement() {
         document.getElementById('stock-reason').value = '';
         loadMovements(itemId);
         loadItems();   // refresh the stock badge on the item cards
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PURCHASE ORDERS  —  GET/POST /purchase-order · POST /purchase-order/<id>/receive
+// ─────────────────────────────────────────────────────────────────────────────
+async function populatePOItemSelect() {
+    const sel = document.getElementById('po-item-select');
+    try {
+        const items = await apiFetch('/item');
+        sel.innerHTML = '<option value="">Select item…</option>' +
+            items.map(i => `<option value="${i.id}">${i.name}${i.supplier ? ' (from ' + i.supplier.name + ')' : ''}</option>`).join('');
+    } catch (_) { /* ignore */ }
+}
+
+async function loadPurchaseOrders() {
+    const list = document.getElementById('purchaseorders-list');
+    list.innerHTML = '<div class="loading">Loading…</div>';
+    try {
+        const orders = await apiFetch('/purchase-order');
+        if (!orders.length) { list.innerHTML = '<div class="empty">No purchase orders yet — place one above!</div>'; return; }
+        list.innerHTML = orders.map(o => {
+            const received = o.status === 'received';
+            return `
+            <div class="list-item">
+                <div class="info">
+                    <h3>📋 ${o.quantity} × ${o.item ? o.item.name : 'item'}
+                        <span class="badge" style="background:${received ? '#e6f7ec' : '#fff3cd'};color:${received ? '#28a745' : '#a07d00'}">${o.status}</span>
+                    </h3>
+                    <p>From 🚚 ${o.supplier ? o.supplier.name : '—'} · Order #${o.id} · ${(o.created_at || '').replace('T',' ').slice(0,16)}</p>
+                </div>
+                <div class="actions">
+                    ${received ? '' : `<button class="btn btn-success btn-sm" onclick="receivePurchaseOrder(${o.id})">📥 Receive</button>`}
+                    <button class="btn btn-danger btn-sm" onclick="deletePurchaseOrder(${o.id})">🗑️ Delete</button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) { list.innerHTML = `<div class="empty">Error: ${e.message}</div>`; }
+}
+
+async function createPurchaseOrder(e) {
+    e.preventDefault();
+    const supplier_id = parseInt(document.getElementById('po-supplier-select').value);
+    const item_id     = parseInt(document.getElementById('po-item-select').value);
+    const quantity    = parseInt(document.getElementById('po-quantity').value);
+    if (!supplier_id || !item_id) { showToast('Pick a supplier and an item', 'error'); return; }
+    try {
+        await apiFetch('/purchase-order', { method: 'POST', body: JSON.stringify({ supplier_id, item_id, quantity }) });
+        showToast('Purchase order placed!');
+        document.getElementById('po-quantity').value = '';
+        loadPurchaseOrders();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function receivePurchaseOrder(id) {
+    if (!confirm("Mark this order received? This adds the quantity to the item's stock.")) return;
+    try {
+        await apiFetch(`/purchase-order/${id}/receive`, { method: 'POST' });
+        showToast('Order received — stock updated!');
+        loadPurchaseOrders();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function deletePurchaseOrder(id) {
+    if (!confirm('Delete this purchase order?')) return;
+    try {
+        await apiFetch(`/purchase-order/${id}`, { method: 'DELETE' });
+        showToast('Purchase order deleted!', 'info');
+        loadPurchaseOrders();
     } catch (e) { showToast(e.message, 'error'); }
 }
 

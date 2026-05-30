@@ -31,5 +31,7 @@ COPY . .
 EXPOSE 5000
 
 # Serve with gunicorn. "wsgi:app" is the app instance defined in wsgi.py.
-# create_app() builds the SQLite tables on startup, so the API is ready at once.
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "wsgi:app"]
+# create_app() builds the tables on startup, so the API is ready at once.
+# Hosts like Render inject the listening port via $PORT; default to 5000 locally.
+# (sh -c is used so ${PORT} is expanded at runtime.)
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 wsgi:app"]

@@ -47,11 +47,14 @@ def create_app(db_url: str | None = None) -> Flask:
         "security": [{"BearerAuth": []}],
     }
 
-    # Database – prefer explicit argument, then env var, then SQLite default
-    app.config["SQLALCHEMY_DATABASE_URI"] = (
-        db_url
-        or os.getenv("DATABASE_URL", "sqlite:///ecommerce.db")
-    )
+    # Database – prefer explicit argument, then env var, then SQLite default.
+    database_url = db_url or os.getenv("DATABASE_URL", "sqlite:///ecommerce.db")
+    # Managed Postgres hosts (Render, Heroku, Railway) hand out "postgres://"
+    # URLs, but SQLAlchemy 2.x only accepts the "postgresql://" scheme — so
+    # normalise it. This is the most common cause of failed Flask deploys.
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     # ------------------------------------------------------------------
@@ -117,6 +120,7 @@ def create_app(db_url: str | None = None) -> Flask:
             SupplierModel,
             CategoryModel,
             StockMovementModel,
+            PurchaseOrderModel,
         )
         db.create_all()
 
@@ -135,6 +139,7 @@ def create_app(db_url: str | None = None) -> Flask:
     from resources.supplier import blp as supplier_blueprint
     from resources.category import blp as category_blueprint
     from resources.stock_movement import blp as stock_blueprint
+    from resources.purchase_order import blp as purchase_order_blueprint
 
     api.register_blueprint(store_blueprint)
     api.register_blueprint(item_blueprint)
@@ -143,6 +148,7 @@ def create_app(db_url: str | None = None) -> Flask:
     api.register_blueprint(supplier_blueprint)
     api.register_blueprint(category_blueprint)
     api.register_blueprint(stock_blueprint)
+    api.register_blueprint(purchase_order_blueprint)
 
     # ------------------------------------------------------------------
     # Frontend – serve the HTML dashboard at the root URL
